@@ -1,6 +1,5 @@
 /*
 * - try bigger world
-* - delta time
 * - normals
 */
 #pragma comment(lib, "glfw3_mt")
@@ -12,6 +11,7 @@
 #include <glfw/glfw3.h>
 #include <glm/glm.hpp>
 #include <vector>
+#include <chrono>
 #include <Windows.h>
 #include "vendor/shader.h"
 
@@ -25,6 +25,17 @@ struct Voxel {
 
 void PrintLimitations();
 
+namespace Time {
+	std::chrono::high_resolution_clock::time_point frame_begin, frame_end;
+	float delta_time = 0;
+	void BeginFrame() {
+		frame_begin = std::chrono::high_resolution_clock::now();
+	}
+	void EndFrame() {
+		frame_end = std::chrono::high_resolution_clock::now();
+		delta_time = std::chrono::duration<float, std::milli>(frame_end - frame_begin).count() / 5.0;
+	}
+};
 
 int main() {
 	glfwInit();
@@ -89,15 +100,47 @@ int main() {
 	glBindTexture(GL_TEXTURE_2D, texture);
 
 	std::vector<Voxel> data = { 
-		{0}, {1}, {0},
-		{1}, {0}, {1},
-		{0}, {1}, {0},
-		{0}, {0}, {0},
-		{0}, {0}, {0},
-		{0}, {0}, {0},
-		{0}, {0}, {0},
-		{0}, {0}, {0},
-		{0}, {0}, {0}
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {1}, {1}, {1}, {1}, {0},		
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {1}, {1}, {1}, {1}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0}
 	};
 	GLuint SSBO;
 	glGenBuffers(1, &SSBO);
@@ -113,16 +156,18 @@ int main() {
 	float theta = 0.0f, alpha = 0.0f;
 	glm::vec3 cam_pos(0, 1, 0);
 	while (!glfwWindowShouldClose(window)) {
-		if (GetAsyncKeyState(VK_LEFT)) theta -= 0.01f;
-		else if (GetAsyncKeyState(VK_RIGHT)) theta += 0.01f;
-		if (GetAsyncKeyState(VK_UP)) alpha += 0.01f;
-		else if (GetAsyncKeyState(VK_DOWN)) alpha -= 0.01f;
-		if (GetAsyncKeyState('W')) cam_pos.z -= 0.01f;
-		else if (GetAsyncKeyState('S')) cam_pos.z += 0.01f;
-		if (GetAsyncKeyState('A')) cam_pos.x -= 0.01f;
-		else if (GetAsyncKeyState('D')) cam_pos.x += 0.01f;
+		Time::BeginFrame();
 
-		std::cout << cam_pos.z << "\n";
+		if (GetAsyncKeyState(VK_LEFT)) theta -= 0.01f * Time::delta_time;
+		else if (GetAsyncKeyState(VK_RIGHT)) theta += 0.01f * Time::delta_time;
+		if (GetAsyncKeyState(VK_UP)) alpha += 0.01f * Time::delta_time;
+		else if (GetAsyncKeyState(VK_DOWN)) alpha -= 0.01f * Time::delta_time;
+		if (GetAsyncKeyState('W')) cam_pos.z -= 0.01f * Time::delta_time;
+		else if (GetAsyncKeyState('S')) cam_pos.z += 0.01f * Time::delta_time;
+		if (GetAsyncKeyState('A')) cam_pos.x -= 0.01f * Time::delta_time;
+		else if (GetAsyncKeyState('D')) cam_pos.x += 0.01f * Time::delta_time;
+
+		//std::cout << cam_pos.z << "\n";
 
 		compute_shader.Use();
 		compute_shader.SetFloat("theta", theta);
@@ -137,6 +182,8 @@ int main() {
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
+
+		Time::EndFrame();
 	}
 	return 0;
 }

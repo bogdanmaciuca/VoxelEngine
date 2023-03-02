@@ -16,10 +16,7 @@ uniform float alpha;
 uniform vec3 cam_pos;
 
 int wnd_width = 800, wnd_height = 600;
-const int out_of_bounds_x = 3;
-const int out_of_bounds_y = 3;
-const int out_of_bounds_z = 3;
-const int world_width = 3;
+const int world_width = 6;
 
 struct Ray {
 	vec3 origin;

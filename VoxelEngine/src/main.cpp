@@ -1,6 +1,5 @@
 /*
-* - try bigger world
-* - normals
+* - shading not working
 */
 #pragma comment(lib, "glfw3_mt")
 #pragma comment(lib, "glew32s")
@@ -10,6 +9,7 @@
 #include <GL/glew.h>
 #include <glfw/glfw3.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <vector>
 #include <chrono>
 #include <Windows.h>
@@ -109,13 +109,6 @@ int main() {
 		
 		{0}, {0}, {0}, {0}, {0}, {0},
 		{0}, {0}, {0}, {0}, {0}, {0},
-		{0}, {1}, {1}, {1}, {1}, {0},		
-		{0}, {0}, {0}, {0}, {0}, {0},
-		{0}, {0}, {0}, {0}, {0}, {0},
-		{0}, {0}, {0}, {0}, {0}, {0},
-		
-		{0}, {0}, {0}, {0}, {0}, {0},
-		{0}, {0}, {0}, {0}, {0}, {0},
 		{0}, {0}, {0}, {0}, {0}, {0},
 		{0}, {0}, {0}, {0}, {0}, {0},
 		{0}, {0}, {0}, {0}, {0}, {0},
@@ -123,14 +116,21 @@ int main() {
 
 		{0}, {0}, {0}, {0}, {0}, {0},
 		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {1}, {1}, {0}, {0},
+		{0}, {0}, {1}, {1}, {0}, {0},
 		{0}, {0}, {0}, {0}, {0}, {0},
-		{0}, {0}, {0}, {0}, {0}, {0},
-		{0}, {0}, {0}, {0}, {0}, {0},
-		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {1}, {1}, {0}, {0},
 
 		{0}, {0}, {0}, {0}, {0}, {0},
 		{0}, {0}, {0}, {0}, {0}, {0},
-		{0}, {1}, {1}, {1}, {1}, {0},
+		{0}, {0}, {1}, {1}, {0}, {0},
+		{0}, {0}, {1}, {1}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {1}, {1}, {0}, {0},
+
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
+		{0}, {0}, {0}, {0}, {0}, {0},
 		{0}, {0}, {0}, {0}, {0}, {0},
 		{0}, {0}, {0}, {0}, {0}, {0},
 		{0}, {0}, {0}, {0}, {0}, {0},
@@ -153,26 +153,39 @@ int main() {
 	glShaderStorageBlockBinding(compute_shader.ID, block_index, ssbo_binding);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ssbo_binding, SSBO);
 
-	float theta = 0.0f, alpha = 0.0f;
+	float rot_x = 0.0f, rot_y = 0.0f;
+	double mouse_x = 0, mouse_y = 0;
+	double last_mouse_x = 0, last_mouse_y = 0;
+	const float sensitivity = 0.005f;
 	glm::vec3 cam_pos(0, 1, 0);
 	while (!glfwWindowShouldClose(window)) {
 		Time::BeginFrame();
 
-		if (GetAsyncKeyState(VK_LEFT)) theta -= 0.01f * Time::delta_time;
-		else if (GetAsyncKeyState(VK_RIGHT)) theta += 0.01f * Time::delta_time;
-		if (GetAsyncKeyState(VK_UP)) alpha += 0.01f * Time::delta_time;
-		else if (GetAsyncKeyState(VK_DOWN)) alpha -= 0.01f * Time::delta_time;
-		if (GetAsyncKeyState('W')) cam_pos.z -= 0.01f * Time::delta_time;
-		else if (GetAsyncKeyState('S')) cam_pos.z += 0.01f * Time::delta_time;
-		if (GetAsyncKeyState('A')) cam_pos.x -= 0.01f * Time::delta_time;
-		else if (GetAsyncKeyState('D')) cam_pos.x += 0.01f * Time::delta_time;
+		last_mouse_x = mouse_x;
+		last_mouse_y = mouse_y;
+		glfwGetCursorPos(window, &mouse_x, &mouse_y);
+		rot_x -= sensitivity * (mouse_x - last_mouse_x);
+		rot_y -= sensitivity * (mouse_y - last_mouse_y);
+		rot_y = glm::clamp(rot_y, -3.14f / 2 , 3.14f / 2);
+		glm::mat3 rot_mat = glm::rotate(glm::mat4(1), rot_x, glm::vec3(0, 1, 0));
+		rot_mat = glm::rotate(glm::mat4(rot_mat), rot_y, glm::vec3(1, 0, 0));
+		glm::vec3 front;
+		front.x = cos(rot_y) * sin(rot_x);
+		front.y = -sin(rot_y);
+		front.z = cos(rot_y) * cos(rot_x);
+		front = glm::normalize(front);
+		glm::vec3 right = glm::normalize(glm::cross(front, glm::vec3(0, 1, 0)));
 
-		//std::cout << cam_pos.z << "\n";
+		if (GetAsyncKeyState('W')) cam_pos -= 0.01f * front * Time::delta_time;
+		else if (GetAsyncKeyState('S')) cam_pos += 0.01f * front * Time::delta_time;
+		if (GetAsyncKeyState('A')) cam_pos += 0.01f * right * Time::delta_time;
+		else if (GetAsyncKeyState('D')) cam_pos -= 0.01f * right * Time::delta_time;
 
 		compute_shader.Use();
-		compute_shader.SetFloat("theta", theta);
 		compute_shader.SetVec3("cam_pos", cam_pos);
-		
+		compute_shader.SetMat3("rot_mat", rot_mat);
+		compute_shader.SetVec3("light_dir", glm::vec3(1, 1, 1));
+
 		glDispatchCompute(800, 600, 1);
 		
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);

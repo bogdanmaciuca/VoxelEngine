@@ -11,9 +11,9 @@ layout(std430, binding = 1 ) readonly buffer bufferData
     Voxel data[];
 };
 
-uniform float theta;
-uniform float alpha;
+uniform mat3 rot_mat;
 uniform vec3 cam_pos;
+uniform vec3 light_pos;
 
 int wnd_width = 800, wnd_height = 600;
 const int world_width = 6;
@@ -36,7 +36,7 @@ mat3 rotationMatrix(vec3 axis, float angle) {
 }
 
 Ray GetRay() {
-	float viewport_height = 2.0;
+	float viewport_height = 1.5;
     float viewport_width = 4.0/3.0 * viewport_height;
     float focal_length = 1.0;
 
@@ -51,11 +51,21 @@ Ray GetRay() {
 	
 	Ray ray;
 	ray.origin = origin;
-	ray.direction = rotationMatrix(vec3(0, 1, 0), theta.x) * normalize(lower_left_corner + u*horizontal + v*vertical - origin);
+	ray.direction = rot_mat * normalize(lower_left_corner + u*horizontal + v*vertical - origin);
 	return ray;
 }
 
-bool TraverseVoxels(vec3 origin, vec3 ray) {
+bool HitSphere(vec3 center, Ray r) {
+	vec3 oc = r.origin - center;
+	float a = dot(r.direction, r.direction);
+	float b = 2.0 * dot(oc, r.direction);
+	float c = dot(oc, oc) - 0.5*0.5;
+	float discriminant = b*b - 4*a*c;
+	return (discriminant > 0);
+}
+
+// Also computes color
+vec3 TraverseVoxels(vec3 origin, vec3 ray) {
 	vec3 ray_start = origin;
 	vec3 ray_dir = ray/ sqrt(ray.x * ray.x + ray.y * ray.y + ray.z * ray.z);
 
@@ -92,6 +102,7 @@ bool TraverseVoxels(vec3 origin, vec3 ray) {
 		ray_length.z = (float(tile_index.z + 1) - ray_start.z) * step_size.z;
 	}
 
+	vec3 normal;
 	// Perform "Walk" until collision or range check
 	bool bTileFound = false;
 	float fMaxDistance = 100.0f;
@@ -102,38 +113,54 @@ bool TraverseVoxels(vec3 origin, vec3 ray) {
 			if (ray_length.x < ray_length.z) {
 				tile_index.x += step.x;
 				ray_length.x += step_size.x;
+				normal = vec3(-step.x, 0, 0);
 			}
 			else {
 				tile_index.z += step.z;
 				ray_length.z += step_size.z;
+				normal = vec3(0, 0, -step.z);
 			}
 		}
 		else {
 			if (ray_length.y < ray_length.z) {
 				tile_index.y += step.y;
 				ray_length.y += step_size.y;
+				normal = vec3(0, -step.y, 0);
 			}
 			else {
 				tile_index.z += step.z;
 				ray_length.z += step_size.z;
+				normal = vec3(0, 0, -step.z);
 			}
 		}
 
-		if (tile_index.x < 0 || tile_index.x >= world_width || tile_index.y < 0 || tile_index.y >= world_width || tile_index.z < 0 || tile_index.z >= world_width )
-			return false;
+		if (tile_index.x < 0 || tile_index.x >= world_width || tile_index.y < 0 || tile_index.y >= world_width || tile_index.z < 0 || tile_index.z >= world_width ) {
+			bTileFound = false;
+			break;
+		}
 		
 
 		if (data[tile_index.z * world_width * world_width + tile_index.y * world_width + tile_index.x].type == 1)
-			return true;
+			bTileFound = true;
 	}
 
-	//// Calculate intersection location
-	//sf::Vector2fvIntersection;
-	//if (bTileFound)
-	//{
-	//	vIntersection = ray_start + ray_dir * fDistance;
-	//}
-	return bTileFound;
+	vec3 color = vec3(0.1, 0.2, 0.3);
+	// Calculate intersection location
+	if (bTileFound) {
+		//vec3 intersection;
+		//intersection = ray_start + ray_dir * fDistance;
+		color = vec3(1, 0, 0) * max(0, dot(normalize(-tile_index+light_pos), normalize(normal)));
+	}
+	else {
+		// Drawing the light source as a sphere
+		//Ray r;
+		//r.origin = origin;
+		//r.direction = ray_dir;
+		//if (HitSphere(light_pos, r))
+		//	color = vec3(1);
+	}
+
+	return color;
 }
 
 
@@ -148,7 +175,7 @@ void main() {
 	//vec3 pos = vec3(2, 2, 3);
 	vec4 color = vec4(0);
 	
-	if (TraverseVoxels(ray.origin, ray.direction)) color = vec4(1, 0, 0, 1);
+	color = vec4(TraverseVoxels(ray.origin, ray.direction), 1);
 
 	//if (cast_ray(ray.origin, ray.direction)) {
 	//	color = vec3(1, 1, 0);
